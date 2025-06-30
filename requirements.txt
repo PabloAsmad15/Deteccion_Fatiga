@@ -2,8 +2,9 @@ streamlit==1.24.1
 streamlit-webrtc==0.63.3
 opencv-python==4.7.0.72
 numpy
+mtcnn
 tensorflow==2.13.0
-mtcnn==1.0.0
 keras==2.13.1
 Pillow
+
 
