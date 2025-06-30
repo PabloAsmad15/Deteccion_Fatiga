@@ -9,7 +9,6 @@ from mtcnn import MTCNN
 st.set_page_config(page_title="Detector de Fatiga", layout="centered")
 st.title("🧠 Detector de Fatiga en Conductores")
 
-@st.cache_resource
 def cargar_modelos():
     modelo_ojos = load_model("modelo_ojos.keras")
     modelo_rostro = load_model("modelo_rostro.keras")
@@ -83,7 +82,7 @@ class FatigaDetector(VideoTransformerBase):
         cv2.putText(img, f"Estado: {self.estado_fatiga}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
         return img
 
-# ✅ LLAMADA DENTRO DE CONTROL INTERACTIVO DE STREAMLIT
+#  LLAMADA DENTRO DE CONTROL INTERACTIVO DE STREAMLIT
 if st.checkbox("Iniciar detección en tiempo real"):
     webrtc_streamer(
         key="fatiga_stream",
