@@ -1,0 +1,12 @@
+# Ignorar entorno virtual
+tfenv/
+
+# Archivos y carpetas temporales
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+.DS_Store
+.env
+.ipynb_checkpoints/
