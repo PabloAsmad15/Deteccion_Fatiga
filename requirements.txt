@@ -4,6 +4,5 @@ opencv-python-headless
 numpy
 tensorflow
 mtcnn
-opencv-python
 keras
 Pillow
