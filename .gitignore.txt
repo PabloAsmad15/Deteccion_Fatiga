@@ -1,12 +1,11 @@
-# Ignorar entorno virtual
 tfenv/
-
-# Archivos y carpetas temporales
-__pycache__/
-*.pyc
-*.pyo
+*.keras
+*.h5
 *.pyd
-*.db
+*.dll
+*.zip
+*.whl
+*.exe
+*.log
+__pycache__/
 .DS_Store
-.env
-.ipynb_checkpoints/
