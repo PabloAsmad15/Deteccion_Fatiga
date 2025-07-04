@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 import time
 from tensorflow.keras.models import load_model
-# from mtcnn import MTCNN  # Opcional, si quieres mantenerlo
 
 st.set_page_config(page_title="Detector de Fatiga", layout="centered")
 st.title("🧠 Detector de Fatiga en Conductores")
@@ -26,10 +25,9 @@ class FatigaDetector(VideoTransformerBase):
 
     def transform(self, frame):
         img = frame.to_ndarray(format="bgr24")
-        img = cv2.resize(img, (640, 480))  # Reducir para mejorar rendimiento
+        img = cv2.resize(img, (640, 480))
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # detect_faces = detector.detect_faces(frame_rgb)  # Si usas MTCNN
         faces = detector.detectMultiScale(gray, 1.3, 5)
 
         for (x, y, w, h) in faces:
@@ -38,21 +36,35 @@ class FatigaDetector(VideoTransformerBase):
             if rostro.shape[0] < 128 or rostro.shape[1] < 128:
                 continue
 
-            rostro_redim = cv2.resize(rostro, (128, 128)) / 255.0
-            rostro_redim = rostro_redim.reshape(1, 128, 128, 3)
-
-            pred_rostro = modelo_rostro.predict(rostro_redim, verbose=0)
-            clase_rostro = np.argmax(pred_rostro)
+            # opcional: evaluar el rostro completo, no necesario para los ojos
+            #rostro_redim = cv2.resize(rostro, (128, 128)) / 255.0
+            #rostro_redim = rostro_redim.reshape(1, 128, 128, 3)
+            #pred_rostro = modelo_rostro.predict(rostro_redim, verbose=0)
 
             ojos_cerrados = 0
-            # Por simplicidad, marcamos 2 ojos cerrados si la predicción de rostro detecta fatiga
-            if clase_rostro == 0:  # o tu clase de "cerrado"
-                ojos_cerrados = 2
 
+            # Cortar dos regiones aproximadas para los ojos (simplificación)
+            ojo_izq = img[y+int(h*0.2):y+int(h*0.5), x:x+int(w/2)]
+            ojo_der = img[y+int(h*0.2):y+int(h*0.5), x+int(w/2):x+w]
+
+            for ojo in [ojo_izq, ojo_der]:
+                if ojo.size == 0:
+                    continue
+                ojo_gray = cv2.cvtColor(ojo, cv2.COLOR_BGR2GRAY)
+                ojo_resized = cv2.resize(ojo_gray, (64, 64)) / 255.0
+                ojo_resized = ojo_resized.reshape(1, 64, 64, 1)
+
+                pred_ojo = modelo_ojos.predict(ojo_resized, verbose=0)
+                clase_ojo = np.argmax(pred_ojo)
+
+                if clase_ojo == 0:  # Cerrado
+                    ojos_cerrados += 1
+
+            # Si ambos ojos cerrados
             if ojos_cerrados == 2:
                 if self.cerrado_inicio is None:
                     self.cerrado_inicio = time.time()
-                elif time.time() - self.cerrado_inicio > self.TIEMPO_UMBRAL:
+                elif time.time() - self.cerrado_inicio >= self.TIEMPO_UMBRAL:
                     self.estado_fatiga = "FATIGA DETECTADA"
                     color = (0, 0, 255)
             else:
