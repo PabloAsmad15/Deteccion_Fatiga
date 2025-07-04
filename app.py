@@ -4,15 +4,16 @@ import cv2
 import numpy as np
 import time
 from tensorflow.keras.models import load_model
-from mtcnn import MTCNN
+# from mtcnn import MTCNN  # Opcional, si quieres mantenerlo
 
 st.set_page_config(page_title="Detector de Fatiga", layout="centered")
 st.title("🧠 Detector de Fatiga en Conductores")
 
+@st.cache_resource
 def cargar_modelos():
     modelo_ojos = load_model("modelo_ojos.keras")
     modelo_rostro = load_model("modelo_rostro.keras")
-    detector = MTCNN()
+    detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     return modelo_ojos, modelo_rostro, detector
 
 modelo_ojos, modelo_rostro, detector = cargar_modelos()
@@ -25,14 +26,14 @@ class FatigaDetector(VideoTransformerBase):
 
     def transform(self, frame):
         img = frame.to_ndarray(format="bgr24")
-        frame_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        detecciones = detector.detect_faces(frame_rgb)
+        img = cv2.resize(img, (640, 480))  # Reducir para mejorar rendimiento
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        for deteccion in detecciones:
-            x, y, w, h = deteccion['box']
-            x, y = max(0, x), max(0, y)
+        # detect_faces = detector.detect_faces(frame_rgb)  # Si usas MTCNN
+        faces = detector.detectMultiScale(gray, 1.3, 5)
+
+        for (x, y, w, h) in faces:
             color = (0, 255, 0)
-
             rostro = img[y:y+h, x:x+w]
             if rostro.shape[0] < 128 or rostro.shape[1] < 128:
                 continue
@@ -43,27 +44,10 @@ class FatigaDetector(VideoTransformerBase):
             pred_rostro = modelo_rostro.predict(rostro_redim, verbose=0)
             clase_rostro = np.argmax(pred_rostro)
 
-            keypoints = deteccion['keypoints']
             ojos_cerrados = 0
-
-            for nombre_ojo in ['left_eye', 'right_eye']:
-                ex, ey = keypoints[nombre_ojo]
-                ojo = img[ey-20:ey+20, ex-20:ex+20]
-                if ojo.shape[0] != 40 or ojo.shape[1] != 40:
-                    continue
-
-                ojo_gray = cv2.cvtColor(ojo, cv2.COLOR_BGR2GRAY)
-                ojo_redim = cv2.resize(ojo_gray, (64, 64)) / 255.0
-                ojo_redim = ojo_redim.reshape(1, 64, 64, 1)
-
-                pred_ojo = modelo_ojos.predict(ojo_redim, verbose=0)
-                clase_ojo = np.argmax(pred_ojo)
-
-                if clase_ojo == 0:
-                    ojos_cerrados += 1
-                    cv2.circle(img, (ex, ey), 10, (0, 0, 255), 2)
-                else:
-                    cv2.circle(img, (ex, ey), 10, (0, 255, 0), 2)
+            # Por simplicidad, marcamos 2 ojos cerrados si la predicción de rostro detecta fatiga
+            if clase_rostro == 0:  # o tu clase de "cerrado"
+                ojos_cerrados = 2
 
             if ojos_cerrados == 2:
                 if self.cerrado_inicio is None:
@@ -82,10 +66,10 @@ class FatigaDetector(VideoTransformerBase):
         cv2.putText(img, f"Estado: {self.estado_fatiga}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
         return img
 
-#  LLAMADA DENTRO DE CONTROL INTERACTIVO DE STREAMLIT
 if st.checkbox("Iniciar detección en tiempo real"):
     webrtc_streamer(
         key="fatiga_stream",
         video_transformer_factory=FatigaDetector,
-        media_stream_constraints={"video": True, "audio": False}
+        media_stream_constraints={"video": True, "audio": False},
+        rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
     )
